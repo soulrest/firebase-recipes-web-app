@@ -19,7 +19,8 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "buildDeploy": "npm run build && firebase deploy --only hosting"
+    "buildDeploy": "npm run build && firebase deploy --only hosting",
+    "preinstall": "npx npm-force-resolutions && node preinstallHotfix"
   },
   "eslintConfig": {
     "extends": [

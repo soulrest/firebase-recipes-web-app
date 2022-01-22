@@ -15,10 +15,11 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [orderBy, setOrderBy] = useState("publishDateDesc");
+  const [recipesPerPage, setRecipesPerPage] = useState(3);
 
   FirebaseAuthService.subscribeToAuthChanges(setUser);
 
-  const fetchRecipes = useCallback(async () => {
+  const fetchRecipes = async (cursorId = "") => {
     const queries = [];
 
     if (categoryFilter) {
@@ -59,8 +60,10 @@ const App = () => {
       const res = await FirebaseFirestoreService.readDocuments({
         collection: "recipes",
         queries: queries,
-        orderByField,
-        orderByDirection,
+        orderByField: orderByField,
+        orderByDirection: orderByDirection,
+        perPage: recipesPerPage,
+        cursorId: cursorId,
       });
       const newRecipes = res.docs.map((recipeDoc) => {
         const id = recipeDoc.id;
@@ -68,13 +71,19 @@ const App = () => {
         data.publishDate = new Date(data.publishDate.seconds * 1000);
         return { ...data, id };
       });
-      fetchedRecipes = [...newRecipes];
+
+      if (cursorId) {
+        console.log(recipes, newRecipes);
+        fetchedRecipes = [...recipes, ...newRecipes];
+      } else {
+        fetchedRecipes = [...newRecipes];
+      }
     } catch (error) {
       console.error(error.message);
       throw error;
     }
     return fetchedRecipes;
-  }, [user, categoryFilter, orderBy]);
+  };
 
   useEffect(() => {
     (async () => {
@@ -90,17 +99,20 @@ const App = () => {
       }
     })();
     // setIsLoading(true);
+    // console.log("useEffect App.js");
     // fetchRecipes()
     //   .then((fetchedRecipes) => {
     //     setRecipes(fetchedRecipes);
     //   })
     //   .catch((err) => console.error(err))
     //   .finally(() => setIsLoading(false));
-  }, [fetchRecipes]);
 
-  const handleFetchRecipes = async () => {
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, categoryFilter, orderBy, recipesPerPage]);
+
+  const handleFetchRecipes = async (cursorId = "") => {
     try {
-      const fetchedRecipes = await fetchRecipes();
+      const fetchedRecipes = await fetchRecipes(cursorId);
       setRecipes(fetchedRecipes);
     } catch (error) {
       console.error(error.message);
@@ -190,6 +202,19 @@ const App = () => {
     const dateString = `${month}.${day}.${year}`;
     return dateString;
   };
+
+  function handleRecipesPerPageChange(e) {
+    const recipesPerPage = e.target.value;
+    setRecipes([]);
+    setRecipesPerPage(recipesPerPage);
+  }
+
+  function handleLoadMoreRecipesClick() {
+    const lastRecipe = recipes[recipes.length - 1];
+    const cursorId = lastRecipe.id;
+
+    handleFetchRecipes(cursorId);
+  }
 
   return (
     <div className="App">
@@ -281,6 +306,31 @@ const App = () => {
             )}
           </div>
         </div>
+        {(isLoading || (recipes && recipes.length > 0)) && (
+          <>
+            <label className="input-label">
+              Recipes Per Page:
+              <select
+                value={recipesPerPage}
+                onChange={handleRecipesPerPageChange}
+                className="select"
+              >
+                <option value="3">3</option>
+                <option value="6">6</option>
+                <option value="9">9</option>
+              </select>
+            </label>
+            <div className="pagination">
+              <button
+                type="button"
+                className="primary-button"
+                onClick={handleLoadMoreRecipesClick}
+              >
+                LOAD MORE RECIPES
+              </button>
+            </div>
+          </>
+        )}
         {user && (
           <AddEditRecipeForm
             existingRecipe={currentRecipe}
